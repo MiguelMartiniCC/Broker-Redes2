@@ -85,7 +85,7 @@ public class ClientService {
                 response.type = "MESSAGE";
                 response.topic = msg.topic;
                 response.payload = msg.payload;
-                response.client = String.valueOf(socket.getInetAddress());
+                response.client = socket.getInetAddress().getHostAddress();
                 response.date = msg.date;
                 response.time = msg.time;
 
