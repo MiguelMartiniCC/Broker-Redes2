@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.concurrent.BlockingQueue;
 
+import so.ifsc.View.LogView;
 public class Tx implements Runnable{
     private final OutputStream out;
     private final BlockingQueue<byte[]> sendingQueue;
@@ -25,7 +26,7 @@ public class Tx implements Runnable{
                 out.flush();
             }
         } catch (InterruptedException | IOException  e) {
-            System.out.println("Tx interrompido para o cliente: "+ service.client.getId()+ ": " + e.getMessage());
+            LogView.log("Tx interrompido para o cliente: "+ service.client.getId()+ ": " + e.getMessage());
         } finally {
             service.close();
         }
