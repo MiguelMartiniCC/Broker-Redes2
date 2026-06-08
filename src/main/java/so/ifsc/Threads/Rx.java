@@ -7,6 +7,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
+import so.ifsc.View.LogView;
+
 public class Rx implements Runnable{
 
     private final InputStream in;
@@ -30,21 +32,25 @@ public class Rx implements Runnable{
                 try {
                     Message msg = new Gson().fromJson(message, Message.class);
 
-                    System.out.println("Cliente ip : " + service.client.getId());
-                    System.out.println("Tipo    : " + msg.type);
-                    System.out.println("Topico   : " + msg.topic);
-                    System.out.println("Mensagem : " + msg.payload);
-                    System.out.println("Data    : " + msg.date);
-                    System.out.println("Horario    : " + msg.time +"\n");
-
                     service.processMessage(msg);
+
+                    LogView.log("===");
+                    LogView.log("Cliente: " + service.client.getClientId());
+                    LogView.log("Tipo    : " + msg.type);
+                    LogView.log("Topico   : " + msg.topic);
+                    LogView.log("Mensagem : " + msg.payload);
+                    LogView.log("Data    : " + msg.date);
+                    LogView.log("Horario    : " + msg.time);
+                    LogView.log("===");
+
+
                 }
                 catch (Exception e) {
-                    System.out.println("Falha ao tentar fazer parse na mensagem: " + message);
+                    LogView.log("Falha ao tentar fazer parse na mensagem: " + message);
                 }
             }
         } catch (IOException e) {
-            System.out.println("Erro ao ler (Rx) client " + service.client.getId() + ": " + e.getMessage());
+            LogView.log("Erro ao ler (Rx) client " + service.client.getClientId() + ": " + e.getMessage());
             e.fillInStackTrace();
         } finally {
             service.close();

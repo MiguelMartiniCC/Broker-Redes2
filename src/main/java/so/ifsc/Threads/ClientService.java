@@ -8,6 +8,7 @@ import so.ifsc.Models.Message;
 
 import java.io.*;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +16,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.LinkedBlockingQueue;
+import so.ifsc.View.LogView;
 
 public class ClientService {
     protected final Map<String, List<byte[]>> pendingMessages = new ConcurrentHashMap<>();
@@ -27,7 +29,7 @@ public class ClientService {
 
     public ClientService(Socket socket) throws IOException {
         this.socket = socket;
-        this.client = new Client(socket.getInetAddress());
+        this.client = new Client();
         this.filaTxMsg = new LinkedBlockingQueue<>();
         this.out = socket.getOutputStream();
         this.in = socket.getInputStream();
@@ -38,86 +40,82 @@ public class ClientService {
         new Thread(new Rx(in, this)).start();
         new Thread(new Tx(out, filaTxMsg, this)).start();
 
-        List<byte[]> pending = pendingMessages.remove(client.getId());
-        if (pending != null) {
-            for (byte[] data : pending) {
-                sendMessage(data);
-            }
-        }
+//        TopicManager.connectClient(client.getClientId(), this);
     }
 
     public void processMessage(Message msg) {
         switch (msg.type.toUpperCase()) {
+            case "CONNECT" -> {
+                client.setClientId(msg.clientId);
+
+                TopicManager.connectClient(client.getClientId(),this);
+
+                LogView.log("Cliente conectado: " + client.getClientId() );
+            }
+
             //todos os tópicos
             case "LIST_ALL_TOPICS" -> {
-                List<String> allTopics = new ArrayList<>(TopicManager.topics.keySet());
+                // Puxa direto do novo TopicManager
+                List<String> allTopics = new ArrayList<>(TopicManager.getAllTopics());
 
                 Message response = new Message();
                 response.type = "TOPICS_LIST";
                 response.payload = new Gson().toJson(allTopics);
-                sendMessage(new Gson().toJson(response).getBytes());
-                System.out.println("Tópicos: " + allTopics);
+                sendMessage(new Gson().toJson(response).getBytes(StandardCharsets.UTF_8));
             }
 
             //tópicos do cliente
             case "LIST_MY_TOPICS" -> {
-                List<String> myTopics = new ArrayList<>(client.getTopics());
+                List<String> myTopics = new ArrayList<>(TopicManager.getTopicsFromClient(client.getClientId()));
 
                 Message response = new Message();
                 response.type = "TOPICS_LIST";
                 response.payload = new Gson().toJson(myTopics);
-                sendMessage(new Gson().toJson(response).getBytes());
-                System.out.println("Tópicos inscritos: " + myTopics);
+
+                sendMessage( new Gson().toJson(response).getBytes(StandardCharsets.UTF_8));
             }
 
             //Subs em topiocs
             case "SUBSCRIBE" -> {
-
-                if (!client.getTopics().contains(msg.topic)) {
-                    TopicManager.topics.computeIfAbsent(msg.topic, k -> new CopyOnWriteArrayList<>()).add(this); //cria topcio se n existir
-                    client.getTopics().add(msg.topic); //adiciona nos topicos do client
-                }
+                TopicManager.subscribe( msg.topic, client.getClientId());
             }
             //Pub nos topicos
             case "PUBLISH" -> {
-                //mensaggem para o topico
                 Message response = new Message();
                 response.type = "MESSAGE";
                 response.topic = msg.topic;
                 response.payload = msg.payload;
-                response.client = socket.getInetAddress().getHostAddress();
+                response.clientId = client.getClientId();
                 response.date = msg.date;
                 response.time = msg.time;
 
-                String json = new Gson().toJson(response);
-                byte[] data = json.getBytes();
-
-                //manda a mensagem para cada um dos subs do topico
-                List<ClientService> subscribers = TopicManager.topics.get(msg.topic);
-                if (subscribers != null) {
-                    for (ClientService subscriber : subscribers) {
-                        if (subscriber.isConnected()) {
-                            subscriber.sendMessage(data);
-                        } else {
-                            pendingMessages
-                                    .computeIfAbsent(subscriber.client.getId(), k -> new ArrayList<>())
-                                    .add(data);
-                        }
-                    }
-                }
+                // Delega totalmente o envio e o buffer para o gerenciador
+                TopicManager.broadcast(msg.topic, response);
             }
-            default -> System.out.println("comando desconhecido: " + msg.type);
+
+            case "EXIT" -> {
+                close();
+            }
+            
+            case "UNSUBSCRIBE" -> {
+                TopicManager.unsubscribe(msg.topic,client.getClientId());
+
+                LogView.log("Cliente " + client.getClientId()
+                        + " saiu do tópico " + msg.topic);
+            }
+            default -> LogView.log("Comando desconhecido: " + msg.type);
         }
     }
 
     protected void close(){
         try {
+            // Avisa o broker que este cliente não está mais online
+            TopicManager.disconnectClient(client.getClientId());
             socket.close();
         } catch (IOException e) {
-            System.out.println("Erro ao fechar o socket: " + e.getMessage());
-            e.printStackTrace();
+           LogView.log("Erro ao fechar o socket: " + e.getMessage());
         }
-        System.out.println("Client " + client.getId() + " desconectado");
+        LogView.log("Cliente " + client.getClientId() + " desconectado");
     }
 
 
