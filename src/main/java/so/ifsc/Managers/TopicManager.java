@@ -8,6 +8,7 @@ import so.ifsc.Models.Message;
 import so.ifsc.Threads.ClientService;
 
 import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -33,6 +34,32 @@ public class TopicManager {
     public static void subscribe(String topic, String clientId) {
         subscriptions.computeIfAbsent(topic, k -> ConcurrentHashMap.newKeySet()).add(clientId);
     }
+//resgata todos opcios do cliente
+    public static Set<String> getTopicsFromClient(String clientId) {
+        Set<String> topics = new HashSet<>();
+
+        for (Map.Entry<String, Set<String>> entry : subscriptions.entrySet()) {
+            if (entry.getValue().contains(clientId)) {
+                topics.add(entry.getKey());
+            }
+        }
+
+        return topics;
+    }
+
+
+    // Cliente sai de um topico
+    public static void unsubscribe(String topic, String clientId) {
+    Set<String> subscribers = subscriptions.get(topic);
+
+    if (subscribers != null) {
+        subscribers.remove(clientId);
+
+        if (subscribers.isEmpty()) {
+            subscriptions.remove(topic);
+        }
+    }
+}
 
     // Envia a mensagem para os inscritos ou armazena no buffer
     public static void broadcast(String topic, Message msg) {

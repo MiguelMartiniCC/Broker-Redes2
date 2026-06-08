@@ -31,9 +31,11 @@ public class Rx implements Runnable{
 
                 try {
                     Message msg = new Gson().fromJson(message, Message.class);
-                    
+
+                    service.processMessage(msg);
+
                     LogView.log("===");
-                    LogView.log("Cliente ip : " + service.client.getId());
+                    LogView.log("Cliente: " + service.client.getClientId());
                     LogView.log("Tipo    : " + msg.type);
                     LogView.log("Topico   : " + msg.topic);
                     LogView.log("Mensagem : " + msg.payload);
@@ -41,14 +43,14 @@ public class Rx implements Runnable{
                     LogView.log("Horario    : " + msg.time);
                     LogView.log("===");
 
-                    service.processMessage(msg);
+
                 }
                 catch (Exception e) {
                     LogView.log("Falha ao tentar fazer parse na mensagem: " + message);
                 }
             }
         } catch (IOException e) {
-            LogView.log("Erro ao ler (Rx) client " + service.client.getId() + ": " + e.getMessage());
+            LogView.log("Erro ao ler (Rx) client " + service.client.getClientId() + ": " + e.getMessage());
             e.fillInStackTrace();
         } finally {
             service.close();

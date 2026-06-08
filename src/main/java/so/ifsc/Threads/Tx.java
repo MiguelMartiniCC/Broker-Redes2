@@ -26,7 +26,7 @@ public class Tx implements Runnable{
                 out.flush();
             }
         } catch (InterruptedException | IOException  e) {
-            LogView.log("Tx interrompido para o cliente: "+ service.client.getId()+ ": " + e.getMessage());
+            LogView.log("Tx interrompido para o cliente: "+ service.client.getClientId()+ ": " + e.getMessage());
         } finally {
             service.close();
         }

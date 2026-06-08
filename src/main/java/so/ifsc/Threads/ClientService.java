@@ -29,7 +29,7 @@ public class ClientService {
 
     public ClientService(Socket socket) throws IOException {
         this.socket = socket;
-        this.client = new Client(socket.getInetAddress());
+        this.client = new Client();
         this.filaTxMsg = new LinkedBlockingQueue<>();
         this.out = socket.getOutputStream();
         this.in = socket.getInputStream();
@@ -40,11 +40,19 @@ public class ClientService {
         new Thread(new Rx(in, this)).start();
         new Thread(new Tx(out, filaTxMsg, this)).start();
 
-        TopicManager.connectClient(client.getId(), this);
+//        TopicManager.connectClient(client.getClientId(), this);
     }
 
     public void processMessage(Message msg) {
         switch (msg.type.toUpperCase()) {
+            case "CONNECT" -> {
+                client.setClientId(msg.clientId);
+
+                TopicManager.connectClient(client.getClientId(),this);
+
+                LogView.log("Cliente conectado: " + client.getClientId() );
+            }
+
             //todos os tópicos
             case "LIST_ALL_TOPICS" -> {
                 // Puxa direto do novo TopicManager
@@ -58,21 +66,18 @@ public class ClientService {
 
             //tópicos do cliente
             case "LIST_MY_TOPICS" -> {
-                List<String> myTopics = new ArrayList<>(client.getTopics());
+                List<String> myTopics = new ArrayList<>(TopicManager.getTopicsFromClient(client.getClientId()));
 
                 Message response = new Message();
                 response.type = "TOPICS_LIST";
                 response.payload = new Gson().toJson(myTopics);
-                sendMessage(new Gson().toJson(response).getBytes(StandardCharsets.UTF_8));
+
+                sendMessage( new Gson().toJson(response).getBytes(StandardCharsets.UTF_8));
             }
 
             //Subs em topiocs
             case "SUBSCRIBE" -> {
-                if (!client.getTopics().contains(msg.topic)) {
-                    // Altera no TopicManager global e na lista local do cliente
-                    TopicManager.subscribe(msg.topic, client.getId());
-                    client.getTopics().add(msg.topic);
-                }
+                TopicManager.subscribe( msg.topic, client.getClientId());
             }
             //Pub nos topicos
             case "PUBLISH" -> {
@@ -80,12 +85,23 @@ public class ClientService {
                 response.type = "MESSAGE";
                 response.topic = msg.topic;
                 response.payload = msg.payload;
-                response.client = socket.getInetAddress().getHostAddress();
+                response.clientId = client.getClientId();
                 response.date = msg.date;
                 response.time = msg.time;
 
                 // Delega totalmente o envio e o buffer para o gerenciador
                 TopicManager.broadcast(msg.topic, response);
+            }
+
+            case "EXIT" -> {
+                close();
+            }
+            
+            case "UNSUBSCRIBE" -> {
+                TopicManager.unsubscribe(msg.topic,client.getClientId());
+
+                LogView.log("Cliente " + client.getClientId()
+                        + " saiu do tópico " + msg.topic);
             }
             default -> LogView.log("Comando desconhecido: " + msg.type);
         }
@@ -94,12 +110,12 @@ public class ClientService {
     protected void close(){
         try {
             // Avisa o broker que este cliente não está mais online
-            TopicManager.disconnectClient(client.getId());
+            TopicManager.disconnectClient(client.getClientId());
             socket.close();
         } catch (IOException e) {
            LogView.log("Erro ao fechar o socket: " + e.getMessage());
         }
-        LogView.log("Client " + client.getId() + " desconectado");
+        LogView.log("Cliente " + client.getClientId() + " desconectado");
     }
 
 
