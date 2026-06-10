@@ -75,6 +75,7 @@ public class ClientService {
                 sendMessage( new Gson().toJson(response).getBytes(StandardCharsets.UTF_8));
             }
 
+
             //Subs em topiocs
             case "SUBSCRIBE" -> {
                 TopicManager.subscribe( msg.topic, client.getClientId());
@@ -92,13 +93,17 @@ public class ClientService {
                 // Delega totalmente o envio e o buffer para o gerenciador
                 TopicManager.broadcast(msg.topic, response);
             }
+            case "GET_BUFFER" -> {
+                // Força o envio das mensagens pendentes do buffer para este cliente específico
+                TopicManager.sendBufferToClient(client.getClientId(), this);
+            }
 
             case "EXIT" -> {
                 close();
             }
             
             case "UNSUBSCRIBE" -> {
-                TopicManager.unsubscribe(msg.topic,client.getClientId());
+                TopicManager.unsubscribe(msg.topic, client.getClientId());
 
                 LogView.log("Cliente " + client.getClientId()
                         + " saiu do tópico " + msg.topic);
