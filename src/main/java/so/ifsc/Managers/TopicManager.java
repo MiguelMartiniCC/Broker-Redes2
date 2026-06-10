@@ -50,16 +50,24 @@ public class TopicManager {
 
     // Cliente sai de um topico
     public static void unsubscribe(String topic, String clientId) {
-    Set<String> subscribers = subscriptions.get(topic);
+        Set<String> subscribers = subscriptions.get(topic);
 
-    if (subscribers != null) {
-        subscribers.remove(clientId);
+        if (subscribers != null) {
+            subscribers.remove(clientId);
 
-        if (subscribers.isEmpty()) {
-            subscriptions.remove(topic);
+            if (subscribers.isEmpty()) {
+                subscriptions.remove(topic);
+            }
+        }
+
+        List<BufferedMessage> buffer = messageBuffers.get(topic);
+
+        if (buffer != null) {
+            for (BufferedMessage msg : buffer) {
+                msg.getPendingClients().remove(clientId);
+            }
         }
     }
-}
 
     // Envia a mensagem para os inscritos ou armazena no buffer
     public static void broadcast(String topic, Message msg) {
@@ -95,6 +103,20 @@ public class TopicManager {
         activeConnections.put(clientId, service);
 
         // Varre os buffers enviando o que for dele
+//        for (Map.Entry<String, List<BufferedMessage>> entry : messageBuffers.entrySet()) {
+//            String topic = entry.getKey();
+//            List<BufferedMessage> buffer = entry.getValue();
+//
+//            for (BufferedMessage bMsg : buffer) {
+//                if (bMsg.getPendingClients().contains(clientId)) {
+//                    byte[] data = new Gson().toJson(bMsg.getMessage()).getBytes(StandardCharsets.UTF_8);
+//                    service.sendMessage(data);
+//                    acknowledgeMessage(topic, bMsg, clientId);
+//                }
+//            }
+//        }
+    }
+    public static void sendBufferToClient(String clientId, ClientService service) {
         for (Map.Entry<String, List<BufferedMessage>> entry : messageBuffers.entrySet()) {
             String topic = entry.getKey();
             List<BufferedMessage> buffer = entry.getValue();
