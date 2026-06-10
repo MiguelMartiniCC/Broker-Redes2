@@ -26,21 +26,18 @@ public class Init extends javax.swing.JFrame {
         java.util.concurrent.ExecutorService pool =
                 java.util.concurrent.Executors.newCachedThreadPool();
 
-        try (java.net.ServerSocket serverSocket =
-                     new java.net.ServerSocket(porta)) {
+        // Voltamos a utilizar o ServerSocket limpo e convencional para controle manual
+        try (java.net.ServerSocket serverSocket = new java.net.ServerSocket(porta)) {
 
-            logView.log("Broker escutando na porta: " + porta);
+            logView.log("Broker Ativo (Autenticação Manual por Hash) escutando na porta: " + porta);
 
             while (true) {
                 java.net.Socket clientSocket = serverSocket.accept();
 
-                logView.log(
-                        "Novo cliente: " +
-                        clientSocket.getInetAddress()
-                );
+                logView.log("Nova tentativa de conexão vinda de: " + clientSocket.getInetAddress());
 
-                ClientService controlador =
-                        new ClientService(clientSocket);
+                // Cria o controlador do ciclo de vida do cliente
+                ClientService controlador = new ClientService(clientSocket);
 
                 pool.execute(controlador::init);
             }
